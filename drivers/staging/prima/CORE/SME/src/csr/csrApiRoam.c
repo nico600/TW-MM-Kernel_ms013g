@@ -265,7 +265,9 @@ void csrRoamReissueRoamCommand(tpAniSirGlobal pMac);
 #ifdef FEATURE_WLAN_BTAMP_UT_RF
 void csrRoamJoinRetryTimerHandler(void *pv);
 #endif
+#ifdef FEATURE_WLAN_TDLS
 void limInitOperatingClasses( tHalHandle hHal );
+#endif
 extern void SysProcessMmhMsg(tpAniSirGlobal pMac, tSirMsgQ* pMsg);
 extern void btampEstablishLogLinkHdlr(void* pMsg);
 static void csrSerDesUnpackDiassocRsp(tANI_U8 *pBuf, tSirSmeDisassocRsp *pRsp);
@@ -436,7 +438,9 @@ eHalStatus csrInitChannelsForCC(tpAniSirGlobal pMac, driver_load_type init)
             pMac->scan.domainIdDefault = regId;
             break;
         case REINIT:
+#ifdef FEATURE_WLAN_TDLS
             vos_getCurrentCountryCode(&cc[0]);
+#endif
             status = csrGetRegulatoryDomainForCountry(pMac,
                      cc, &regId, COUNTRY_QUERY);
             break;
@@ -556,7 +560,9 @@ eHalStatus csrUpdateChannelList(tpAniSirGlobal pMac)
     vos_msg_t msg;
     tANI_U8 i;
 
+#ifdef FEATURE_WLAN_TDLS
     limInitOperatingClasses((tHalHandle)pMac);
+#endif
     numChan = sizeof(pMac->roam.validChannelList);
 
     if ( !HAL_STATUS_SUCCESS(csrGetCfgValidChannels(pMac,
@@ -2303,7 +2309,9 @@ eHalStatus csrInitChannelList( tHalHandle hHal )
     csrSaveChannelPowerForBand(pMac, eANI_BOOLEAN_TRUE);
     // Apply the base channel list, power info, and set the Country code...
     csrApplyChannelPowerCountryInfo( pMac, &pMac->scan.base20MHzChannels, pMac->scan.countryCodeCurrent, eANI_BOOLEAN_TRUE );
+#ifdef FEATURE_WLAN_TDLS
     limInitOperatingClasses(hHal);
+#endif
     return (status);
 }
 eHalStatus csrChangeConfigParams(tpAniSirGlobal pMac, 

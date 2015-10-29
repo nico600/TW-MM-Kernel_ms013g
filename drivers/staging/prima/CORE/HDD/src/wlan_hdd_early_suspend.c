@@ -2163,7 +2163,9 @@ VOS_STATUS hdd_wlan_re_init(void)
    pHddCtx->hdd_mcastbcast_filter_set = FALSE;
    pHddCtx->btCoexModeSet = FALSE;
    hdd_register_mcast_bcast_filter(pHddCtx);
+#ifdef FEATURE_WLAN_TDLS
    wlan_hdd_tdls_init(pHddCtx);
+#endif
    /* Register with platform driver as client for Suspend/Resume */
    vosStatus = hddRegisterPmOps(pHddCtx);
    if ( !VOS_IS_STATUS_SUCCESS( vosStatus ) )
