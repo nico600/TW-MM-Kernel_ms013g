@@ -514,6 +514,8 @@ obj-$(CONFIG_PERFMAP) += perfmap.o
 obj-$(CONFIG_SEC_VIENNA_PROJECT) += board-vienna-motor.o
 obj-$(CONFIG_SEC_V2_PROJECT) += board-vienna-motor.o
 
+obj-$(CONFIG_SEC_BSP) += sec_bsp.o
+
 ifdef CONFIG_ARCH_MSM8226
 obj-$(CONFIG_SEC_THERMISTOR) += sec_thermistor_8226.o msm8226-thermistor.o
 else ifdef CONFIG_ARCH_MSM8610
