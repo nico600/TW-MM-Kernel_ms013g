@@ -112,7 +112,7 @@ static unsigned long tx_queue_size = 60UL;
 module_param(tx_queue_size, ulong, 0);
 MODULE_PARM_DESC(tx_queue_size,"Specifies the size of the tx queue lenght");
 
-int tx_hold_on_completion = FALSE;
+int tx_hold_on_completion = TRUE;
 module_param(tx_hold_on_completion, int, 0);
 MODULE_PARM_DESC(tx_hold_on_completion,"Hold tx until USB completion if Enable");
 
