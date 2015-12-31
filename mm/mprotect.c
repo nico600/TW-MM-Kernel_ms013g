@@ -109,8 +109,9 @@ static void change_pte_range(struct mm_struct *mm, pmd_t *pmd,
 	if (tima_l2group_flag) {
 		/* First: Flush the cache of the buffer to be read by the TZ side
 		 */
-		flush_dcache_page(virt_to_page(tima_l2group_buffer1));
-		if (tima_l2group_buffer2)
+		if(tima_l2group_buffer1)
+			flush_dcache_page(virt_to_page(tima_l2group_buffer1));
+		if(tima_l2group_buffer2)
 			flush_dcache_page(virt_to_page(tima_l2group_buffer2));
 		/* Second: Pass the buffer pointers and length to TIMA to commit the changes
 		 */
@@ -223,7 +224,8 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	 */
 	pgoff = vma->vm_pgoff + ((start - vma->vm_start) >> PAGE_SHIFT);
 	*pprev = vma_merge(mm, *pprev, start, end, newflags,
-			vma->anon_vma, vma->vm_file, pgoff, vma_policy(vma));
+			vma->anon_vma, vma->vm_file, pgoff, vma_policy(vma),
+			vma_get_anon_name(vma));
 	if (*pprev) {
 		vma = *pprev;
 		goto success;
