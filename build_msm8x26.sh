@@ -204,6 +204,9 @@ FUNC_EXT_MODULES_TARGET()
 	mkdir -p $OUT_MODU
 	find $BUILD_KERNEL_OUT_DIR -name "*.ko" -exec cp -fv {} $OUT_MODU \;
 
+	mkdir -p $OUT_MODU/pronto
+	mv -vf $OUT_MODU/wlan.ko $OUT_MODU/pronto/pronto_wlan.ko
+
 	echo ""
 	echo "===================================="
 	echo "  END : FUNC_EXT_MODULES_TARGET"
