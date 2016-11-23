@@ -1365,6 +1365,8 @@ struct xhci_bus_state {
 	u32			suspended_ports;
 	u32			port_remote_wakeup;
 	unsigned long		resume_done[USB_MAXCHILDREN];
+	/* which ports have started to resume */
+	unsigned long		resuming_ports;
 };
 
 static inline unsigned int hcd_index(struct usb_hcd *hcd)
@@ -1482,6 +1484,7 @@ struct xhci_hcd {
 #define XHCI_RESET_ON_RESUME	(1 << 7)
 #define	XHCI_SW_BW_CHECKING	(1 << 8)
 #define XHCI_AMD_0x96_HOST	(1 << 9)
+#define XHCI_TRUST_TX_LENGTH	(1 << 10)
 /*
  * In Synopsis DWC3 controller, PORTSC register access involves multiple clock
  * domains. When the software does a PORTSC write, handshakes are needed
@@ -1496,7 +1499,7 @@ struct xhci_hcd {
  * The workaround is to give some delay (5 mac2_clk -> UTMI clock = 60 MHz ->
  * (16.66 ns x 5 = 84ns) ~100ns after writing to the PORTSC register.
  */
-#define XHCI_PORTSC_DELAY	(1 << 10)
+#define XHCI_PORTSC_DELAY	(1 << 11)
 /*
  * In Synopsis DWC3 controller, XHCI RESET takes some time complete. If PIPE
  * RESET is not complete by the time USBCMD.RUN bit is set then HC fails to
@@ -1504,7 +1507,7 @@ struct xhci_hcd {
  *
  * The workaround is to give worst case pipe delay ~350us after resetting HC
  */
-#define XHCI_RESET_DELAY	(1 << 11)
+#define XHCI_RESET_DELAY	(1 << 12)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
