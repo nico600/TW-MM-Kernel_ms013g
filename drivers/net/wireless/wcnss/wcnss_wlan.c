@@ -436,6 +436,7 @@ static struct {
 	struct pm_qos_request wcnss_pm_qos_request;
 	int pc_disabled;
 	struct delayed_work wcnss_pm_qos_del_req;
+	struct mutex pm_qos_mutex;
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -875,7 +876,6 @@ void wcnss_pronto_log_debug_regs(void)
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
-#ifdef CONFIG_WCNSS_IRIS_REGISTER_DUMP
 static void wcnss_log_iris_regs(void)
 {
 	int i;
@@ -891,7 +891,6 @@ static void wcnss_log_iris_regs(void)
 		pr_info("[0x%08x] : 0x%08x\n", regs_array[i], reg_val);
 	}
 }
-#endif
 
 int wcnss_get_mux_control(void)
 {
@@ -902,7 +901,6 @@ int wcnss_get_mux_control(void)
 		return 0;
 
 	pmu_conf_reg = penv->msm_wcnss_base + PRONTO_PMU_OFFSET;
-	writel_relaxed(0, pmu_conf_reg);
 	reg = readl_relaxed(pmu_conf_reg);
 	reg |= WCNSS_PMU_CFG_GC_BUS_MUX_SEL_TOP;
 	writel_relaxed(reg, pmu_conf_reg);
@@ -931,15 +929,11 @@ void wcnss_log_debug_regs_on_bite(void)
 
 		if (clk_rate) {
 			wcnss_pronto_log_debug_regs();
-#ifdef CONFIG_WCNSS_IRIS_REGISTER_DUMP
 			if (wcnss_get_mux_control())
 				wcnss_log_iris_regs();
-#endif
 		} else {
 			pr_err("clock frequency is zero, cannot access PMU or other registers\n");
-#ifdef CONFIG_WCNSS_IRIS_REGISTER_DUMP
 			wcnss_log_iris_regs();
-#endif
 		}
 	}
 }
@@ -950,10 +944,8 @@ void wcnss_reset_intr(void)
 {
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		wcnss_pronto_log_debug_regs();
-#ifdef CONFIG_WCNSS_IRIS_REGISTER_DUMP
 		if (wcnss_get_mux_control())
 			wcnss_log_iris_regs();
-#endif
 		wmb();
 		__raw_writel(1 << 16, penv->fiq_reg);
 	} else {
@@ -963,6 +955,25 @@ void wcnss_reset_intr(void)
 	}
 }
 EXPORT_SYMBOL(wcnss_reset_intr);
+
+void wcnss_reset_fiq(bool clk_chk_en)
+{
+	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
+		if (clk_chk_en) {
+			wcnss_log_debug_regs_on_bite();
+		} else {
+			wcnss_pronto_log_debug_regs();
+			if (wcnss_get_mux_control())
+				wcnss_log_iris_regs();
+		}
+		/* Insert memory barrier before writing fiq register */
+		wmb();
+		__raw_writel(1 << 16, penv->fiq_reg);
+	} else {
+		wcnss_riva_log_debug_regs();
+	}
+}
+EXPORT_SYMBOL(wcnss_reset_fiq);
 
 static int wcnss_create_sysfs(struct device *dev)
 {
@@ -1030,22 +1041,26 @@ void wcnss_pm_qos_update_request(int val)
 
 void wcnss_disable_pc_remove_req(void)
 {
+	mutex_lock(&penv->pm_qos_mutex);
 	if (penv->pc_disabled) {
+		penv->pc_disabled = 0;
 		wcnss_pm_qos_update_request(WCNSS_ENABLE_PC_LATENCY);
 		wcnss_pm_qos_remove_request();
 		wcnss_allow_suspend();
-		penv->pc_disabled = 0;
 	}
+	mutex_unlock(&penv->pm_qos_mutex);
 }
 
 void wcnss_disable_pc_add_req(void)
 {
+	mutex_lock(&penv->pm_qos_mutex);
 	if (!penv->pc_disabled) {
 		wcnss_pm_qos_add_request();
 		wcnss_prevent_suspend();
 		wcnss_pm_qos_update_request(WCNSS_DISABLE_PC_LATENCY);
 		penv->pc_disabled = 1;
 	}
+	mutex_unlock(&penv->pm_qos_mutex);
 }
 
 static void wcnss_smd_notify_event(void *data, unsigned int event)
@@ -1937,7 +1952,6 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		pr_debug("wcnss: received WCNSS_CALDATA_DNLD_RSP from ccpu %u\n",
 			fw_status);
 		break;
-		
 	case WCNSS_CBC_COMPLETE_IND:
 		penv->is_cbc_done = 1;
 		pr_debug("wcnss: received WCNSS_CBC_COMPLETE_IND from FW\n");
@@ -2592,7 +2606,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		}
 	} while (pil_retry++ < WCNSS_MAX_PIL_RETRY && IS_ERR(penv->pil));
 
-	if (pil_retry >= WCNSS_MAX_PIL_RETRY) {
+	if (IS_ERR(penv->pil)) {
 		wcnss_reset_intr();
 		if (penv->wcnss_notif_hdle)
 			subsys_notif_unregister_notifier(penv->wcnss_notif_hdle,
@@ -2658,6 +2672,30 @@ fail_gpio_res:
 	penv = NULL;
 	return ret;
 }
+
+/* wlan prop driver cannot invoke cancel_work_sync
+ * function directly, so to invoke this function it
+ * call wcnss_flush_work function
+ */
+void wcnss_flush_work(struct work_struct *work)
+{
+	struct work_struct *cnss_work = work;
+	if (cnss_work != NULL)
+		cancel_work_sync(cnss_work);
+}
+EXPORT_SYMBOL(wcnss_flush_work);
+
+/* wlan prop driver cannot invoke cancel_delayed_work_sync
+ * function directly, so to invoke this function it call
+ * wcnss_flush_delayed_work function
+ */
+void wcnss_flush_delayed_work(struct delayed_work *dwork)
+{
+	struct delayed_work *cnss_dwork = dwork;
+	if (cnss_dwork != NULL)
+		cancel_delayed_work_sync(cnss_dwork);
+}
+EXPORT_SYMBOL(wcnss_flush_delayed_work);
 
 static int wcnss_node_open(struct inode *inode, struct file *file)
 {
@@ -2756,7 +2794,7 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 		return -EFAULT;
 
 	if ((UINT32_MAX - count < penv->user_cal_rcvd) ||
-	     MAX_CALIBRATED_DATA_SIZE < count + penv->user_cal_rcvd) {
+	     (penv->user_cal_exp_size < count + penv->user_cal_rcvd)) {
 		pr_err(DEVICE " invalid size to write %d\n", count +
 				penv->user_cal_rcvd);
 		rc = -ENOMEM;
@@ -2846,6 +2884,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	mutex_init(&penv->dev_lock);
 	mutex_init(&penv->ctrl_lock);
 	mutex_init(&penv->vbat_monitor_mutex);
+	mutex_init(&penv->pm_qos_mutex);
 	init_waitqueue_head(&penv->read_wait);
 
 	/* Since we were built into the kernel we'll be called as part
