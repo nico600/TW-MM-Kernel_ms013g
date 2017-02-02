@@ -165,7 +165,7 @@ config AUDIO_OCMEM
 
 config DOLBY_DAP
 	bool "Enable Dolby DAP"
-	depends on SND_SOC_MSM8974
+	depends on SND_SOC_MSM8974 || SND_SOC_MSM8226
 	help
 	 To add support for dolby DAP post processing.
 	 This support is to configure the post processing parameters
@@ -314,13 +314,13 @@ choice
 
 
 config SND_SOC_ES_I2C
-        bool "earSmart I2C"
+        tristate "earSmart I2C"
         help
           Y to use the I2C as control interface to communicate with
 	  Audience chips.
 
 config SND_SOC_ES_SLIM
-        bool "earSmart SLIMbus"
+        tristate "earSmart SLIMbus"
         help
           Y to use the SLIMbus as the command and control path
 endchoice
